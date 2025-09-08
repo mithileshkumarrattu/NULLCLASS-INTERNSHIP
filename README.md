@@ -34,7 +34,7 @@ It features:
 ├── Tasks.ipynb             # Specialized dashboard: Grouped bar, time-gated, etc.
 ├── Play-Store-Data.csv     # Main dataset (Google Play store apps)
 ├── User-Reviews.csv        # User reviews with sentiment
-├── results/                # (Recommended) Place for screenshots, exports
+├── results/                #  screenshots, exports
 └── README.md               # This file
 ```
 
