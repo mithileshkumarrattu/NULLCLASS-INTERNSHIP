@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Store Data Analysis Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        :root {
+            /* Dark mode (default) */
+            --primary-bg: #121212;
+            --secondary-bg: #1e1e1e;
+            --card-bg: #252525;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent-color: #bb86fc;
+            --accent-color-light: #d0b3fc;
+            --accent-color-dark: #9d4edd;
+            --error-color: #cf6679;
+            --success-color: #03dac6;
+            --border-color: #333333;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --card-shadow-hover: 0 8px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Light mode */
+        [data-theme="light"] {
+            --primary-bg: #f5f5f5;
+            --secondary-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-primary: #212121;
+            --text-secondary: #666666;
+            --accent-color: #6200ee;
+            --accent-color-light: #9d4edd;
+            --accent-color-dark: #3700b3;
+            --error-color: #b00020;
+            --success-color: #018786;
+            --border-color: #e0e0e0;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --card-shadow-hover: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Theme toggle styles */
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-left: 15px;
+        }
+        
+        .theme-toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            margin: 0 8px;
+        }
+        
+        .theme-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .theme-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--secondary-bg);
+            transition: .4s;
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .theme-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 2px;
+            background-color: var(--accent-color);
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .theme-toggle-slider {
+            background-color: var(--accent-color-light);
+        }
+        
+        input:checked + .theme-toggle-slider:before {
+            transform: translateX(26px);
+            background-color: var(--secondary-bg);
+        }
+        
+        body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--primary-bg);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    padding-top: 0; /* Remove padding as header is no longer fixed */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+        
+        .container-fluid {
+            padding-left: clamp(15px, 5%, 40px);
+            padding-right: clamp(15px, 5%, 40px);
+        }
+        
+        .dashboard-header {
+    background-color: var(--secondary-bg);
+    color: var(--accent-color);
+    padding: clamp(15px, 3vh, 30px) 0;
+    margin-bottom: clamp(20px, 4vh, 40px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    width: 100%;
+    z-index: 1000;
+    height: auto;
+    display: flex;
+    align-items: center;
+}
+        
+        .dashboard-header h1 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .dashboard-header p {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            opacity: 0.9;
+        }
+        
+        .chart-container {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: clamp(20px, 3%, 30px);
+            margin-bottom: clamp(20px, 4vh, 30px);
+            height: auto;
+            min-height: 500px;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow-hover);
+            border-color: var(--accent-color-dark);
+        }
+        
+        .chart-title {
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .time-badge {
+            background-color: var(--accent-color);
+            color: var(--primary-bg);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+            margin-left: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            display: inline-block;
+            transition: background-color 0.3s ease;
+        }
+        
+        .time-badge:hover {
+            background-color: var(--accent-color-light);
+        }
+        
+        .chart-description {
+            font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .chart-description strong {
+            color: var(--accent-color-light);
+            font-weight: 600;
+        }
+        
+        .not-available {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            background-color: var(--secondary-bg);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-style: italic;
+            border: 1px dashed var(--border-color);
+            text-align: center;
+        }
+        
+        /* Footer styling */
+        .footer {
+            margin-top: 40px;
+            background-color: var(--secondary-bg);
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.05);
+            padding: clamp(20px, 3vh, 30px) 0;
+            margin-top: clamp(30px, 5vh, 50px);
+        }
+        
+        .footer-content {
+            padding: 10px 0;
+        }
+        
+        .developer-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 600;
+            border-bottom: 1px dashed var(--accent-color-dark);
+        }
+        
+        .developer-link:hover {
+            color: var(--accent-color-light);
+            text-decoration: underline;
+            text-shadow: 0 0 8px rgba(187, 134, 252, 0.4);
+        }
+        
+        
+        .current-time {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            font-weight: 500;
+            text-align: right;
+            padding: clamp(10px, 2vh, 15px) clamp(15px, 3vw, 25px);
+            background-color: var(--card-bg);
+            border-radius: 6px;
+            margin-bottom: clamp(20px, 3vh, 30px);
+            color: var(--text-primary);
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+        
+        .current-time:hover {
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4);
+            border-color: var(--accent-color-dark);
+        }
+        
+        /* Footer styles moved to the glassmorphism section above */
+        
+        .dashboard-date {
+            font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+        
+        .header-logo {
+            max-height: 80px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .header-logo:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .filter-container {
+            width: 100%;
+            max-width: 250px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .filter-select {
+            background-color: var(--secondary-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.2rem rgba(187, 134, 252, 0.25);
+            outline: none;
+        }
+        
+        .filter-select option {
+            background-color: var(--secondary-bg);
+            color: var(--text-primary);
+        }
+        
+        /* Loading indicator styles */
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            flex-direction: column;
+            background-color: rgba(30, 30, 30, 0.9);
+            border-radius: 12px;
+            opacity: 0.95;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--accent-color-dark);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+            animation: loading-bar 2s infinite;
+        }
+        
+        @keyframes loading-bar {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .loading-text {
+            margin-top: 15px;
+            color: var(--accent-color);
+            font-size: 1rem;
+            font-weight: 500;
+            animation: pulse 1.5s infinite;
+            text-shadow: 0 0 10px rgba(187, 134, 252, 0.5);
+            letter-spacing: 0.5px;
+        }
+        
+        .loading-icon {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(187, 134, 252, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        /* Responsive improvements */
+        @media (max-width: 1200px) {
+            .chart-container {
+                min-height: 450px;
+            }
+            
+            .dashboard-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .chart-container {
+                min-height: 450px;
+            }
+            
+            .chart-title {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .time-badge {
+                margin-left: 0;
+                margin-top: 8px;
+            }
+            
+            .dashboard-header h1 {
+                font-size: 1.6rem;
+            }
+            
+            .dashboard-header .container-fluid {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            
+            .filter-container {
+                max-width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .current-time {
+                text-align: center;
+                font-size: 0.9rem;
+            }
+            
+            .chart-container {
+                min-height: 400px;
+                margin-bottom: 20px;
+            }
+            
+            .dashboard-header {
+                padding: 10px 0;
+            }
+            
+            .dashboard-header h1 {
+                font-size: 1.4rem;
+            }
+            
+            .chart-title {
+                font-size: 1.1rem;
+            }
+            
+            .modebar {
+                transform: scale(0.8);
+                transform-origin: right top;
+            }
+            
+            .header-logo {
+                max-height: 40px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .chart-container {
+                min-height: 300px;
+            }
+            
+            .dashboard-header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .chart-title {
+                font-size: 1rem;
+            }
+            
+            .chart-description {
+                font-size: 0.8rem;
+            }
+            
+            .time-badge {
+                font-size: 0.7rem;
+                padding: 2px 5px;
+            }
+            
+            .modebar {
+                transform: scale(0.7);
+            }
+            
+            .row > [class*='col-'] {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+        }
+            
+            /* Improve chart responsiveness on tablets */
+            .js-plotly-plot {
+                height: auto !important;
+                min-height: 350px !important;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .chart-container {
+                min-height: 350px;
+                padding: 15px;
+            }
+            
+            .chart-title {
+                font-size: 1rem;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+            }
+            
+            .chart-description {
+                font-size: 0.8rem;
+                margin-bottom: 10px;
+            }
+            
+            /* Make charts more compact on mobile */
+            .js-plotly-plot {
+                min-height: 300px !important;
+            }
+        }
+        
+        /* Plotly specific responsive fixes */
+        .js-plotly-plot .plotly .modebar {
+            top: 10px !important;
+            right: 10px !important;
+        }
+        
+        .js-plotly-plot .plotly .modebar-btn {
+            font-size: 12px !important;
+        }
+        
+        /* Improve modebar visibility on mobile */
+        @media (max-width: 576px) {
+            .js-plotly-plot .plotly .modebar {
+                transform: scale(0.8);
+                transform-origin: top right;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container-fluid px-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1>Play Store Data Analysis Dashboard</h1>
+                    <p>Interactive visualizations of Play Store app data by <a href="{{ developer_info.portfolio }}" target="_blank" class="developer-link">{{ developer_info.name }}</a></p>
+                    <p class="dashboard-date">Last Updated: {{ developer_info.current_date }}</p>
+                </div>
+                <div class="col-md-1 text-end d-flex justify-content-end align-items-center">
+                    <div class="theme-toggle">
+                        <span>🌙</span>
+                        <label class="theme-toggle-switch">
+                            <input type="checkbox" id="theme-toggle-input">
+                            <span class="theme-toggle-slider"></span>
+                        </label>
+                        <span>☀️</span>
+                    </div>
+                </div>
+                <div class="col-md-3 text-end d-none d-md-block">
+                    <img src="{{ developer_info.logo_url }}" alt="Play Store Logo" class="header-logo img-fluid">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-4">
+        <div class="current-time shadow" id="current-time">
+            Current Time (IST): Loading...
+        </div>
+
+        <div class="row">
+            <!-- Chart 1 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Top 10 App Categories: Average Rating vs Total Reviews</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 3PM-5PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Comparing average rating and total review count for top 10 app categories by installs.
+                        <strong>Filters:</strong> Rating ≥ 4.0, Size > 10MB, Last Updated in January.
+                    </div>
+                    <div id="chart1" style="height: 400px;"></div>
+                </div>
+            </div>
+
+            <!-- Chart 2 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Global Installs by Category (Top 5)</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 6PM-8PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Choropleth map visualizing global installs by category. 
+                        <strong>Filters:</strong> Top 5 categories, installs > 1M, select filter below to change view.
+                    </div>
+                    <div class="filter-container mb-3">
+                        <select id="map-filter" class="form-select form-select-sm filter-select">
+                            <option value="default">Default Filter</option>
+                            <option value="popular">Popular Categories</option>
+                            <option value="highrated">High-Rated Categories</option>
+                            <option value="trending">Trending Categories</option>
+                        </select>
+                    </div>
+                    <div id="chart2" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Chart 3 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Average Installs vs Revenue: Free vs Paid Apps</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 1PM-2PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Dual-axis chart comparing installs and revenue for free vs. paid apps in top 3 categories.
+                        <strong>Filters:</strong> Installs ≥ 10K, Revenue ≥ $10K, Android > 4.0, Size > 15MB, Content Rating: Everyone, App name ≤ 30 chars.
+                    </div>
+                    <div id="chart3" style="height: 400px;"></div>
+                </div>
+            </div>
+
+            <!-- Chart 4 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Total Installs Over Time by App Category</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 6PM-9PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Time series showing install trends by category with growth periods highlighted.
+                        <strong>Filters:</strong> App name not starting with X, Y, Z; Category starting with E, C, B; Reviews > 500; App name without 'S'.
+                        Translations: Beauty (Hindi), Business (Tamil), Dating (German).
+                    </div>
+                    <div id="chart4" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Chart 5 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>App Size vs Rating (Bubble Size = Installs)</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 5PM-7PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Bubble chart analyzing relationship between app size and rating.
+                        <strong>Filters:</strong> Rating > 3.5, Selected categories, Reviews > 500, App name without 'S', Sentiment subjectivity > 0.5, Installs > 50K.
+                        Translations: Beauty (Hindi), Business (Tamil), Dating (German). Game category highlighted in pink.
+                    </div>
+                    <div id="chart5" style="height: 400px;"></div>
+                </div>
+            </div>
+
+            <!-- Chart 6 -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="chart-container shadow">
+                    <div class="chart-title d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Cumulative Installs Over Time by App Category</span>
+                        <span class="time-badge mt-2 mt-sm-0">Available: 4PM-6PM IST</span>
+                    </div>
+                    <div class="chart-description">
+                        Stacked area chart showing cumulative installs over time.
+                        <strong>Filters:</strong> Rating ≥ 4.2, App name without numbers, Category starting with T or P, Reviews > 1K, Size 20-80MB.
+                        Translations: Travel & Local (French), Productivity (Spanish), Photography (Japanese).
+                    </div>
+                    <div id="chart6" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container-fluid px-4">
+            <div class="footer-content">
+                <div class="row align-items-center py-4">
+                    <div class="col-md-4">
+                        <p class="mb-1">© 2023-2024 Play Store Data Analysis Dashboard</p>
+                        <p class="small mb-0">Last Updated: {{ developer_info.current_date }}</p>
+                    </div>
+                    <div class="col-md-4 text-center d-none d-md-block">
+                        <img src="{{ developer_info.logo_url }}" alt="Play Store Logo" class="footer-logo img-fluid" style="max-height: 60px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <p class="mb-1">Developed by <a href="{{ developer_info.portfolio }}" target="_blank" class="developer-link">{{ developer_info.name }}</a></p>
+                        <p class="small mb-0">Created with Flask, Plotly, and Bootstrap</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Function to update current time with better error handling
+        function updateCurrentTime() {
+            const timeElement = document.getElementById('current-time');
+            
+            fetch('/api/current-time')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    timeElement.innerHTML = `Current Time (IST): ${data.time}`;
+                    timeElement.classList.remove('text-danger');
+                })
+                .catch(error => {
+                    console.error('Error updating time:', error);
+                    timeElement.innerHTML = `Current Time (IST): ${new Date().toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'})}`;
+                    timeElement.classList.add('text-danger');
+                });
+        }
+
+        // Enhanced function to load chart data with better loading indicator and error handling
+        function loadChart(chartId, apiEndpoint) {
+            const chartElement = document.getElementById(chartId);
+            
+            fetch(apiEndpoint)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.visible === false) {
+                        chartElement.innerHTML = '<div class="not-available">This chart is only available during specific hours (see time badge)</div>';
+                    } else {
+                        // Enhanced Plotly configuration for better responsiveness
+                        const config = {
+                            responsive: true,
+                            displayModeBar: false,
+                            scrollZoom: false,  // Disable scroll zoom for better mobile experience
+                            staticPlot: false,   // Enable interactivity
+                            toImageButtonOptions: {
+                                format: 'png',
+                                filename: `chart-${chartId}`,
+                                height: 500,
+                                width: 700,
+                                scale: 2  // Higher resolution
+                            },
+                            modeBarButtonsToRemove: [
+                                'sendDataToCloud',
+                                'autoScale2d',
+                                'resetScale2d',
+                                'hoverClosestCartesian',
+                                'hoverCompareCartesian',
+                                'select2d',
+                                'lasso2d'
+                            ]
+                        };
+                        
+                        // Special handling for world map (chart2) to ensure it's responsive
+                        if (chartId === 'chart2') {
+                            // Add a small delay to ensure the container is fully rendered
+                            setTimeout(() => {
+                                try {
+                                    Plotly.newPlot(chartId, data, null, config);
+                                    
+                                    // Add resize handler specifically for the map
+                                    const resizeMap = () => {
+                                        Plotly.relayout(chartId, {
+                                            'geo.projection.scale': Math.min(window.innerWidth / 1000, 1.2),
+                                            'width': chartElement.offsetWidth,
+                                            'height': Math.max(350, chartElement.offsetWidth * 0.6)
+                                        });
+                                    };
+                                    
+                                    // Initial resize
+                                    resizeMap();
+                                    
+                                    // Add event listener for window resize
+                                    if (!window.mapResizeListenerAdded) {
+                                        window.addEventListener('resize', debounce(resizeMap, 250));
+                                        window.mapResizeListenerAdded = true;
+                                    }
+                                } catch (err) {
+                                    console.error(`Error rendering chart ${chartId}:`, err);
+                                    chartElement.innerHTML = '<div class="not-available">Error rendering chart. Please try refreshing the page.</div>';
+                                }
+                            }, 100);
+                        } else {
+                            // For other charts
+                            try {
+                                Plotly.newPlot(chartId, data, null, config);
+                                
+                                // Make chart responsive to container size
+                                window.addEventListener('resize', debounce(() => {
+                                    Plotly.relayout(chartId, {
+                                        'width': chartElement.offsetWidth,
+                                        'height': Math.max(350, chartElement.offsetWidth * 0.6)
+                                    });
+                                }, 250));
+                            } catch (err) {
+                                console.error(`Error rendering chart ${chartId}:`, err);
+                                chartElement.innerHTML = '<div class="not-available">Error rendering chart. Please try refreshing the page.</div>';
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error loading chart ${chartId}:`, error);
+                    chartElement.innerHTML = `
+                        <div class="not-available">
+                            <div>Error loading chart data</div>
+                            <div class="mt-2 small">${error.message}</div>
+                            <button class="btn btn-sm btn-outline-light mt-3" onclick="retryLoadChart('${chartId}', '${apiEndpoint}')">Retry</button>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Function to retry loading a chart
+        function retryLoadChart(chartId, apiEndpoint) {
+            loadChart(chartId, apiEndpoint);
+        }
+        
+        // Debounce function to limit how often a function can be called
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // Load charts in sequence with priority and better timing
+        function loadChartsSequentially() {
+            // Define charts with priority (lower number = higher priority)
+            const charts = [
+                { id: 'chart1', endpoint: '/api/charts/1', priority: 1 },
+                { id: 'chart2', endpoint: '/api/charts/2', priority: 2 }, // World map has high priority
+                { id: 'chart3', endpoint: '/api/charts/3', priority: 3 },
+                { id: 'chart4', endpoint: '/api/charts/4', priority: 4 },
+                { id: 'chart5', endpoint: '/api/charts/5', priority: 5 },
+                { id: 'chart6', endpoint: '/api/charts/6', priority: 6 }
+            ];
+            
+            // Sort by priority
+            charts.sort((a, b) => a.priority - b.priority);
+            
+            // Load charts with increasing delays to prevent overwhelming the browser
+            let index = 0;
+            function loadNext() {
+                if (index < charts.length) {
+                    const chart = charts[index++];
+                    loadChart(chart.id, chart.endpoint);
+                    
+                    // Adaptive delay based on device performance
+                    const delay = window.innerWidth <= 768 ? 500 : 300;
+                    setTimeout(loadNext, delay);
+                }
+            }
+            loadNext();
+        }
+
+        // Check if the device is a mobile device
+        function isMobileDevice() {
+            return (window.innerWidth <= 768) || 
+                   (navigator.userAgent.match(/Android/i) ||
+                    navigator.userAgent.match(/webOS/i) ||
+                    navigator.userAgent.match(/iPhone/i) ||
+                    navigator.userAgent.match(/iPad/i) ||
+                    navigator.userAgent.match(/iPod/i) ||
+                    navigator.userAgent.match(/BlackBerry/i) ||
+                    navigator.userAgent.match(/Windows Phone/i));
+        }
+
+        // Function to load chart2 with filter
+        function loadChart2WithFilter(filter) {
+            const chartElement = document.getElementById('chart2');
+            
+            // Build the URL with the filter parameter
+            const apiEndpoint = filter ? `/api/charts/2?filter=${filter}` : '/api/charts/2';
+            
+            fetch(apiEndpoint)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.visible === false) {
+                        chartElement.innerHTML = '<div class="not-available">This chart is only available during specific hours (see time badge)</div>';
+                    } else {
+                        // Enhanced Plotly configuration for better responsiveness
+                        const config = {
+                            responsive: true,
+                            displayModeBar: false,
+                            scrollZoom: false,
+                            staticPlot: false,
+                            toImageButtonOptions: {
+                                format: 'png',
+                                filename: 'world-map-chart',
+                                height: 500,
+                                width: 700,
+                                scale: 2
+                            },
+                            modeBarButtonsToRemove: [
+                                'sendDataToCloud',
+                                'autoScale2d',
+                                'resetScale2d',
+                                'hoverClosestCartesian',
+                                'hoverCompareCartesian',
+                                'select2d',
+                                'lasso2d'
+                            ]
+                        };
+                        
+                        // Add a small delay to ensure the container is fully rendered
+                        setTimeout(() => {
+                            try {
+                                Plotly.newPlot('chart2', data, null, config);
+                                
+                                // Add resize handler specifically for the map
+                                const resizeMap = () => {
+                                    Plotly.relayout('chart2', {
+                                        'geo.projection.scale': Math.min(window.innerWidth / 1000, 1.2),
+                                        'width': chartElement.offsetWidth,
+                                        'height': Math.max(350, chartElement.offsetWidth * 0.6)
+                                    });
+                                };
+                                
+                                // Initial resize
+                                resizeMap();
+                                
+                                // Add event listener for window resize
+                                if (!window.mapResizeListenerAdded) {
+                                    window.addEventListener('resize', debounce(resizeMap, 250));
+                                    window.mapResizeListenerAdded = true;
+                                }
+                            } catch (err) {
+                                console.error(`Error rendering chart2:`, err);
+                                chartElement.innerHTML = '<div class="not-available">Error rendering map. Please try refreshing the page.</div>';
+                            }
+                        }, 100);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error loading chart2:`, error);
+                    chartElement.innerHTML = `
+                        <div class="not-available">
+                            <div>Error loading map data</div>
+                            <div class="mt-2 small">${error.message}</div>
+                            <button class="btn btn-sm btn-outline-light mt-3" onclick="loadChart2WithFilter('${filter || 'default'}')">Retry</button>
+                        </div>
+                    `;
+                });
+        }
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update time immediately
+            updateCurrentTime();
+            
+            // Set up filter dropdown for map chart
+            const mapFilter = document.getElementById('map-filter');
+            if (mapFilter) {
+                mapFilter.addEventListener('change', function() {
+                    loadChart2WithFilter(this.value === 'default' ? null : this.value);
+                });
+            }
+            
+            // Load charts with a small delay to ensure DOM is fully ready
+            setTimeout(() => {
+                // Load chart2 separately with filter
+                loadChart2WithFilter(null);
+                
+                // Load other charts
+                const charts = [
+                    { id: 'chart1', endpoint: '/api/charts/1', priority: 1 },
+                    { id: 'chart3', endpoint: '/api/charts/3', priority: 2 },
+                    { id: 'chart4', endpoint: '/api/charts/4', priority: 3 },
+                    { id: 'chart5', endpoint: '/api/charts/5', priority: 4 },
+                    { id: 'chart6', endpoint: '/api/charts/6', priority: 5 }
+                ];
+                
+                // Sort by priority
+                charts.sort((a, b) => a.priority - b.priority);
+                
+                // Load charts with increasing delays to prevent overwhelming the browser
+                let index = 0;
+                function loadNext() {
+                    if (index < charts.length) {
+                        const chart = charts[index++];
+                        loadChart(chart.id, chart.endpoint);
+                        
+                        // Adaptive delay based on device performance
+                        const delay = window.innerWidth <= 768 ? 500 : 300;
+                        setTimeout(loadNext, delay);
+                    }
+                }
+                loadNext();
+            }, 100);
+
+            // Update time every minute
+            setInterval(updateCurrentTime, 60000); // 60000 ms = 1 minute
+            
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('theme-toggle-input');
+            
+            // Check for saved theme preference or use default (dark)
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            themeToggle.checked = savedTheme === 'light';
+            
+            // Handle theme toggle changes
+            themeToggle.addEventListener('change', function() {
+                const theme = this.checked ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                
+                // Update Plotly charts with new theme colors
+                const charts = ['chart1', 'chart2', 'chart3', 'chart4', 'chart5', 'chart6'];
+                charts.forEach(chartId => {
+                    const chartElement = document.getElementById(chartId);
+                    if (chartElement && chartElement._fullLayout) {
+                        const newTemplate = theme === 'light' ? 'plotly' : 'plotly_dark';
+                        const newBgColor = 'rgba(0,0,0,0)';
+                        const newTextColor = theme === 'light' ? '#212121' : '#ffffff';
+                        
+                        Plotly.relayout(chartId, {
+                            'template': newTemplate,
+                            'paper_bgcolor': newBgColor,
+                            'plot_bgcolor': newBgColor,
+                            'font.color': newTextColor
+                        });
+                    }
+                });
+            });
+            
+            // Add smooth scrolling for better UX
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
